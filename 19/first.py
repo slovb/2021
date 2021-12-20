@@ -8,18 +8,18 @@ flatten = lambda d: sum([abs(v) for v in d])
 def difference(a, b):
     return tuple([b[i] - a[i] for i in range(3)])
 
+def distance(a, b):
+    return flatten(difference(a, b))
 
 def generate_rotators():
     for a,b,c in product([-1, 1], repeat=3):
         for i,j,k in permutations([0, 1, 2]):
             yield lambda d: tuple([a*d[i], b*d[j], c*d[k]])
 
-
 class Scanner:
     def __init__(self, id, beacons) -> None:
         self.id = id
         self.beacons = []
-        self.vectors = []
         self.distances = []
         for b in beacons:
             self.add(b)
@@ -28,11 +28,9 @@ class Scanner:
         if beacon in self.beacons:
             return
         for b in self.beacons:
-            d = difference(b, beacon)
-            self.vectors.append(d)
-            self.distances.append(flatten(d))
+            self.distances.append(distance(b, beacon))
         self.beacons.append(beacon)
-        self.vectors = sorted(self.vectors, key=flatten)
+        self.beacons = sorted(self.beacons, key=lambda b: distance((0, 0, 0), b))
         self.distances = sorted(self.distances)
 
     def distance_score(self, scanner: Scanner) -> int:
@@ -50,25 +48,22 @@ class Scanner:
                 j += 1
         return total
 
-    def rot_score(self, scanner: Scanner, rotator: Callable) -> int:
-        # This is not the way to score this, TODO FIX
-        rotated = [rotator(d) for d in scanner.vectors]
-        return len([d for d in rotated if d in self.vectors])
-    
-    def find_rotator(self, scanner: Scanner) -> callable:
-        best_score = -1
-        best_rotator = None
-        for r in generate_rotators():
-            score = self.rot_score(scanner, r)
-            if score > best_score:
-                best_score = score
-                best_rotator = r
-        print('{} best rotation: {}'.format(scanner.id, best_score))
-        return best_rotator
-    
     def align_beacons(self, beacons) -> list:
-        # TODO after rotations are fixed
-        return beacons
+        best_score = -1
+        best_beacons = []
+        for rotator in generate_rotators():
+            fixpoint = rotator(beacons[0])
+            for candidate in self.beacons:
+                aligner = lambda b: (
+                    b[0] + candidate[0] - fixpoint[0],
+                    b[1] + candidate[1] - fixpoint[1],
+                    b[2] + candidate[2] - fixpoint[2],
+                )
+                score = sum([1 for b in beacons if aligner(rotator(b)) in self.beacons])
+                if score > best_score:
+                    best_score = score
+                    best_beacons = [aligner(rotator(b)) for b in beacons]
+        return best_beacons
     
     def __str__(self) -> str:
         output = ['---  scanner {}  ---'.format(self.id)]
@@ -91,8 +86,7 @@ def solve(scanners: list[Scanner]):
                 best_score = score
                 best_scanner = scanner
         scanners.remove(best_scanner)
-        rotator = constellation.find_rotator(best_scanner)
-        aligned_beacons = constellation.align_beacons([rotator(b) for b in best_scanner.beacons])     
+        aligned_beacons = constellation.align_beacons(best_scanner.beacons)
         for b in aligned_beacons:
             constellation.add(b)
         print(constellation)
