@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Literal
+from itertools import combinations
+from copy import deepcopy
 
 
 class Snail:
@@ -27,6 +29,11 @@ class Snail:
     
     def split(self):
         return self.left.split() or self.right.split()    
+
+    def reduce(self):
+        while self.explode() or self.split():
+            pass
+        return self
 
     def magnitude(self):
         return 3*self.left.magnitude() + 2*self.right.magnitude()
@@ -157,19 +164,14 @@ def snail_sum(a, b):
 
 
 def solve(snails: list[Snail]):
-    snail = snails.pop(0)
-    while len(snails) > 0:
-        neu = snails.pop(0)
-        print('{} + {}'.format(str(snail), str(neu)))
-        snail = snail_sum(snail, neu)
+    values = []
+    for a, b in combinations(snails, 2):
+        values.append(snail_sum(deepcopy(a), deepcopy(b)).reduce().magnitude())
+        values.append(snail_sum(deepcopy(b), deepcopy(a)).reduce().magnitude())
+    print(values)
+    for snail in snails:
         print(snail)
-        while snail.explode() or snail.split():
-            print('-> {}'.format(str(snail)))
-            if not snail.validate():
-                raise Exception('hell')        
-        print('')
-    print(snail)
-    return snail.magnitude()
+    return max(values)
 
 
 def build_snail(row, root=None):
