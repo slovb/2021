@@ -66,7 +66,7 @@ def enhance(karta, rules):
 def solve(karta, rules):
     print(karta)
     print('')
-    for _ in range(2):
+    for _ in range(50):
         karta = enhance(karta, rules)
         print(karta)
         print('')
