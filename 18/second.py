@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Literal
 from itertools import combinations
 from copy import deepcopy
 
