@@ -1,15 +1,6 @@
 from __future__ import annotations
-from itertools import combinations, permutations, product
-from typing import Callable
+from itertools import permutations, product
 
-
-flatten = lambda d: sum([abs(v) for v in d])
-
-def difference(a, b):
-    return tuple([b[i] - a[i] for i in range(3)])
-
-def distance(a, b):
-    return flatten(difference(a, b))
 
 def generate_rotators():
     for a,b,c in product([-1, 1], repeat=3):
@@ -19,80 +10,62 @@ def generate_rotators():
 class Scanner:
     def __init__(self, id, beacons) -> None:
         self.id = id
-        self.beacons = []
-        self.distances = []
-        for b in beacons:
-            self.add(b)
-
-    def add(self, beacon):
-        if beacon in self.beacons:
-            return
-        for b in self.beacons:
-            self.distances.append(distance(b, beacon))
-        self.beacons.append(beacon)
-        self.beacons = sorted(self.beacons, key=lambda b: distance((0, 0, 0), b))
-        self.distances = sorted(self.distances)
-
-    def distance_score(self, scanner: Scanner) -> int:
-        total = 0
-        i, j = 0, 0
-        while i < len(self.distances) and j < len(scanner.distances):
-            a, b = self.distances[i], scanner.distances[j]
-            if a == b:
-                i += 1
-                j += 1
-                total += 1
-            elif a < b:
-                i += 1
-            else:
-                j += 1
-        return total
+        self.beacons = beacons
 
     def align_beacons(self, beacons) -> list:
         best_score = -1
         best_beacons = []
         for rotator in generate_rotators():
-            fixpoint = rotator(beacons[0])
-            for candidate in self.beacons:
-                aligner = lambda b: (
-                    b[0] + candidate[0] - fixpoint[0],
-                    b[1] + candidate[1] - fixpoint[1],
-                    b[2] + candidate[2] - fixpoint[2],
-                )
-                score = sum([1 for b in beacons if aligner(rotator(b)) in self.beacons])
-                if score > best_score:
-                    best_score = score
-                    best_beacons = [aligner(rotator(b)) for b in beacons]
-        return best_beacons
+            for fixpoint in beacons:
+                fr = rotator(fixpoint)
+                for candidate in self.beacons:
+                    aligner = lambda b: (
+                        b[0] + candidate[0] - fr[0],
+                        b[1] + candidate[1] - fr[1],
+                        b[2] + candidate[2] - fr[2],
+                    )
+                    score = sum([1 for b in beacons if aligner(rotator(b)) in self.beacons])
+                    if score > best_score:
+                        best_score = score
+                        best_beacons = [aligner(rotator(b)) for b in beacons]
+        return best_score, best_beacons
     
     def __str__(self) -> str:
         output = ['---  scanner {}  ---'.format(self.id)]
         for b in self.beacons:
-            output.append(' ' + ''.join([str(v).rjust(5) for v in b]))
+            output.append(' ' + ''.join([str(v).rjust(6) for v in b]))
         return '\n'.join(output)
 
 
 def solve(scanners: list[Scanner]):
-    constellation = scanners.pop(0)
-    print(constellation)
+    final_beacons = set()
+    fixed = [scanners.pop(0)]
+    print(fixed[0])
+    for b in fixed[0].beacons:
+        final_beacons.add(b)
     print('')
     
     while len(scanners) > 0:
-        best_score = 0
-        best_scanner = None
-        for scanner in scanners:
-            score = constellation.distance_score(scanner)
-            if score > best_score:
-                best_score = score
-                best_scanner = scanner
-        scanners.remove(best_scanner)
-        aligned_beacons = constellation.align_beacons(best_scanner.beacons)
-        for b in aligned_beacons:
-            constellation.add(b)
-        print(constellation)
-        print('')
-        
-    return len(constellation.beacons)
+        if len(fixed) == 0:
+            raise Exception('bleh')
+        new_fixed = []
+        to_remove = set()
+        for fix, scanner in product(fixed, scanners):
+            if scanner.id in to_remove:
+                continue
+            score, aligned_beacons = fix.align_beacons(scanner.beacons)
+            print(score)
+            if score >= 12:
+                to_remove.add(scanner.id)
+                neu = Scanner(scanner.id, aligned_beacons)
+                print(neu)
+                new_fixed.append(neu)
+                for b in neu.beacons:
+                    final_beacons.add(b)
+                print('total', len(final_beacons))
+        fixed = new_fixed
+        scanners = [scan for scan in scanners if scan.id not in to_remove]        
+    return len(final_beacons)
 
 
 def read(filename):
